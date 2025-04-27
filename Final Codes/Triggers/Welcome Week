@@ -1,0 +1,21 @@
+--When a player will pass the welcome week
+
+CREATE TRIGGER pass_welcome_week
+AFTER UPDATE OF current_location_id ON Player
+WHEN NEW.current_location_id = 1 OR NEW.current_location_id < OLD.current_location_id
+ AND NEW.suspension_status = 0 -- Only award credits if the player is not suspended, because Suspension makes the player jump to a location
+BEGIN
+    -- Award 100 credits for passing or landing on "Welcome Week" (Location 1)
+    UPDATE Player
+    SET credits = credits + 100
+    WHERE player_id = NEW.player_id;
+
+    -- Log the credit award in the Audit Trail
+    INSERT INTO AuditTrail (round, player_id, location_id, credits)
+    VALUES (
+        (SELECT IFNULL(MAX(round), 0) + 1 FROM AuditTrail),
+        NEW.player_id,
+        NEW.current_location_id,
+        (SELECT credits FROM Player WHERE player_id = NEW.player_id)
+    );
+END

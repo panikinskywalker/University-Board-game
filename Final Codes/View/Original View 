@@ -1,0 +1,17 @@
+CREATE VIEW leaderboard AS
+SELECT 
+    p.name AS name,
+    LOWER(REPLACE(REPLACE(REPLACE(REPLACE(l.location_name, ' ', '_'), "'", ''), '&', 'and'), ',', '')) AS location,
+    p.credits AS credits,
+    (
+        SELECT GROUP_CONCAT(
+            LOWER(REPLACE(REPLACE(REPLACE(REPLACE(b.building_name, ' ', '_'), "'", ''), '&', 'and'), ',', '')), ', ') 
+        FROM Building b
+        JOIN Location loc ON b.location_id = loc.location_id
+        WHERE b.owner_id = p.player_id
+        ORDER BY loc.location_id
+    ) AS buildings,
+    p.credits + IFNULL((SELECT SUM(2 * b.tuition_fee) FROM Building b WHERE b.owner_id = p.player_id), 0) AS net_worth
+FROM Player p
+JOIN Location l ON p.current_location_id = l.location_id
+ORDER BY net_worth DESC

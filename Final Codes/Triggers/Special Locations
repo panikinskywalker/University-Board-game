@@ -1,0 +1,26 @@
+--To handle Special Locations like RAG and Hearing
+
+
+CREATE TRIGGER handle_special_location
+AFTER UPDATE OF current_location_id ON Player
+WHEN 
+    (SELECT location_type FROM Location WHERE location_id = NEW.current_location_id) IN ('RAG', 'Hearing')
+BEGIN
+    -- Adjust the player's credits based on the specials effect (credits_change) in the Specials table
+    UPDATE Player
+    SET credits = credits + (
+        SELECT credits_change
+        FROM Specials
+        WHERE location_id = NEW.current_location_id
+    )
+    WHERE player_id = NEW.player_id;
+
+    -- Log the special location action in the AuditTrail
+    INSERT INTO AuditTrail (round, player_id, location_id, credits)
+    VALUES (
+        (SELECT IFNULL(MAX(round), 0) + 1 FROM AuditTrail),
+        NEW.player_id,
+        NEW.current_location_id,
+        (SELECT credits FROM Player WHERE player_id = NEW.player_id)
+    );
+END

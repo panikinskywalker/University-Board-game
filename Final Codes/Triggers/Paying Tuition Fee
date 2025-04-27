@@ -1,0 +1,55 @@
+--The payment of tuition fee if there is a Owner on the Location on which the player has landed and it isn't themself
+
+CREATE TRIGGER pay_tuition_fee
+AFTER UPDATE OF current_location_id ON Player
+WHEN 
+    (SELECT location_type FROM Location WHERE location_id = NEW.current_location_id) = 'Building'
+    AND (SELECT owner_id FROM Building WHERE location_id = NEW.current_location_id) IS NOT NULL
+    AND (SELECT owner_id FROM Building WHERE location_id = NEW.current_location_id) != NEW.player_id
+    AND NEW.last_roll != 6  -- Skip paying tuition if the last roll was 6
+BEGIN
+    -- Calculate the standard tuition fee
+    UPDATE Player
+    SET credits = credits - (
+        CASE
+            WHEN (
+                SELECT COUNT(*) FROM Building 
+                WHERE color = (SELECT color FROM Building WHERE location_id = NEW.current_location_id)
+                AND owner_id = (SELECT owner_id FROM Building WHERE location_id = NEW.current_location_id)
+            ) = (
+                SELECT COUNT(*) FROM Building 
+                WHERE color = (SELECT color FROM Building WHERE location_id = NEW.current_location_id)
+            )
+            THEN 2 * (SELECT tuition_fee FROM Building WHERE location_id = NEW.current_location_id)
+            ELSE (SELECT tuition_fee FROM Building WHERE location_id = NEW.current_location_id)
+        END
+    )
+    WHERE player_id = NEW.player_id;
+
+    -- Credit the building owner with the correct tuition amount
+    UPDATE Player
+    SET credits = credits + (
+        CASE
+            WHEN (
+                SELECT COUNT(*) FROM Building 
+                WHERE color = (SELECT color FROM Building WHERE location_id = NEW.current_location_id)
+                AND owner_id = (SELECT owner_id FROM Building WHERE location_id = NEW.current_location_id)
+            ) = (
+                SELECT COUNT(*) FROM Building 
+                WHERE color = (SELECT color FROM Building WHERE location_id = NEW.current_location_id)
+            )
+            THEN 2 * (SELECT tuition_fee FROM Building WHERE location_id = NEW.current_location_id)
+            ELSE (SELECT tuition_fee FROM Building WHERE location_id = NEW.current_location_id)
+        END
+    )
+    WHERE player_id = (SELECT owner_id FROM Building WHERE location_id = NEW.current_location_id);
+
+    -- Log the payment in the AuditTrail
+    INSERT INTO AuditTrail (round, player_id, location_id, credits)
+    VALUES (
+        (SELECT IFNULL(MAX(round), 0) + 1 FROM AuditTrail),
+        NEW.player_id,
+        NEW.current_location_id,
+        (SELECT credits FROM Player WHERE player_id = NEW.player_id)
+    );
+END

@@ -1,0 +1,28 @@
+
+--Trigger which makes it an obligation for a player to buy a building in case it does not have any owner
+CREATE TRIGGER buy_unowned_building
+AFTER UPDATE OF current_location_id ON Player
+WHEN 
+    (SELECT location_type FROM Location WHERE location_id = NEW.current_location_id) = 'Building'
+    AND (SELECT owner_id FROM Building WHERE location_id = NEW.current_location_id) IS NULL
+    AND NEW.last_roll != 6  -- Skip buying action if the last roll was 6
+BEGIN
+    -- Deduct the cost of the building from the player's credits
+    UPDATE Player
+    SET credits = credits - (2 * (SELECT tuition_fee FROM Building WHERE location_id = NEW.current_location_id))
+    WHERE player_id = NEW.player_id;
+
+    -- Set the player as the owner of the building
+    UPDATE Building
+    SET owner_id = NEW.player_id
+    WHERE location_id = NEW.current_location_id;
+
+    -- Log the purchase in the AuditTrail
+    INSERT INTO AuditTrail (round, player_id, location_id, credits)
+    VALUES (
+        (SELECT IFNULL(MAX(round), 0) + 1 FROM AuditTrail),
+        NEW.player_id,
+        NEW.current_location_id,
+        (SELECT credits FROM Player WHERE player_id = NEW.player_id)
+    );
+END

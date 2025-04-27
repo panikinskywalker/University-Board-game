@@ -1,0 +1,21 @@
+--To suspension
+
+CREATE TRIGGER youre_suspended
+AFTER UPDATE OF current_location_id ON Player
+WHEN NEW.current_location_id = 18
+BEGIN
+    -- Move the player to the Suspension location (Location 8)
+    UPDATE Player
+    SET current_location_id = 8, -- Move to Suspension location
+        suspension_status = 1    -- Mark player as suspended
+    WHERE player_id = NEW.player_id;
+
+    -- Log the move to Suspension in the AuditTrail
+    INSERT INTO AuditTrail (round, player_id, location_id, credits)
+    VALUES (
+        (SELECT IFNULL(MAX(round), 0) + 1 FROM AuditTrail), -- Increment round number
+        NEW.player_id, -- The player who triggered the action
+        8,             -- Set location as Suspension (Location 8)
+        (SELECT credits FROM Player WHERE player_id = NEW.player_id) -- Current credits
+    );
+END

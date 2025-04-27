@@ -1,0 +1,61 @@
+--Creating the Tables
+
+--Creating Tables
+CREATE TABLE Token (
+    token_id INTEGER PRIMARY KEY,
+    token_name TEXT UNIQUE NOT NULL
+);
+
+
+CREATE TABLE Player (
+    player_id INTEGER PRIMARY KEY,
+    name TEXT NOT NULL,
+    token_name TEXT NOT NULL,
+    credits INTEGER DEFAULT 500 CHECK(credits >= 0),
+    current_location_id INTEGER,
+    suspension_status BOOLEAN DEFAULT 0,
+    FOREIGN KEY (token_name) REFERENCES Token (token_name),
+    FOREIGN KEY (current_location_id) REFERENCES Location (location_id)
+);
+
+-- Add last_roll column to store the last dice roll for each player
+ALTER TABLE Player
+ADD COLUMN last_roll INTEGER DEFAULT 0;
+
+
+CREATE TABLE Location (
+    location_id INTEGER PRIMARY KEY,
+    location_name TEXT NOT NULL,
+    location_type TEXT CHECK(location_type IN ('Corner', 'Building', 'Hearing', 'RAG'))
+);
+
+CREATE TABLE Building (
+    building_id INTEGER PRIMARY KEY,
+    building_name TEXT NOT NULL,
+    tuition_fee INTEGER NOT NULL CHECK(tuition_fee > 0),
+    color TEXT NOT NULL,
+    owner_id INTEGER,
+    location_id INTEGER UNIQUE,
+    FOREIGN KEY (owner_id) REFERENCES Player (player_id),
+    FOREIGN KEY (location_id) REFERENCES Location (location_id)
+);
+
+CREATE TABLE Specials (
+    special_id INTEGER PRIMARY KEY,
+    special_name TEXT NOT NULL,
+    description TEXT NOT NULL,
+    credits_change INTEGER DEFAULT 0,
+    location_id INTEGER UNIQUE,
+    FOREIGN KEY (location_id) REFERENCES Location (location_id)
+);
+
+CREATE TABLE AuditTrail (
+    audit_id INTEGER PRIMARY KEY,
+    round INTEGER NOT NULL,
+    player_id INTEGER,
+    location_id INTEGER,
+    credits INTEGER,
+    FOREIGN KEY (player_id) REFERENCES Player (player_id),
+    FOREIGN KEY (location_id) REFERENCES Location (location_id)
+);
+
